@@ -1,7 +1,5 @@
 # GlanceFiltering
-R scripts for filtering GLanCE Trainging data
-
-4 R scripts:
+R scripts for filtering GLanCE Trainging data; Includes 4 R scripts:
 
 0.GlanceFunctionDefs.R: functions used by scripts in filtering
 
