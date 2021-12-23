@@ -8,7 +8,7 @@
 # Set up data for more involved filtering.
 
 # Set up working dir
-setwd("~/Dropbox/Main/Rwork/GLanCETraining")
+setwd("/projectnb/measures/users/rkstan/glance/")
 
 # load required libraries
 library(randomForest)
@@ -24,82 +24,91 @@ library(e1071)
 library(doMC)
 
 # source script with function definitions
-source('Rscripts/0.GlanceFunctionDefs.R')
+source('GlanceFiltering/0.GlanceFunctionDefs.R')
+
+glancedat <- read.csv('training_data/NA_Training_Master_V1_2021_11_23_predictors_final.csv',header=TRUE)
+#glancedat <- read.csv('training_data/NA_Training_Master_V1_NO_LCMAP_2021_07_09_predictors_final.csv', header=TRUE)
 
 # select continent
 cont <- 'NA'      # NA = North America, AF = Africa.....
 
 # read training data from csv file
-if (cont=='AF') glancedat <- read.csv('data/AF_Training_Master_V1_2020_08_24_Coef_float.csv',header=TRUE)
+#if (cont=='AF') glancedat <- read.csv('data/AF_Training_Master_V1_2020_08_24_Coef_float.csv',header=TRUE)
 
-if (cont=='NA') {  
+#if (cont=='NA') {  
   # glancedat <- read.csv('data/NA_Training_Master_V1_NO_LCMAP_2021_03_17_predictors.csv',header=TRUE)[,2:142] # old code
   # horrible kludge to make this work with new colnames format.
-  c.names <- colnames(read.csv('data/NA_Training_Master_V1_NO_LCMAP_2021_03_17_predictors.csv',header=TRUE))
-  glancedat <- read.csv('data/NA_Training_Master_V1_NO_LCMAP_2021_07_09_predictors_final.csv',header=TRUE)[,c(c.names,"LC_Confidence")][,-1]
-}
+#  c.names <- colnames(read.csv('training_data/NA_Training_Master_V1_NO_LCMAP_2021_07_09_predictors_final.csv',header=TRUE))
+#  glancedat <- read.csv('training_data/NA_Training_Master_V1_NO_LCMAP_2021_07_09_predictors_final.csv',header=TRUE)[,c(c.names,"LC_Confidence")][,-1]
+#}
 
-# get rid of cases with 'unfilled (4) or snow/ice' (1) as LC class in AF
-if (cont == 'AF') {
-  glancedat <- subset(glancedat,glancedat[,'LC_Class']!='Unfilled' & glancedat[,'LC_Class']!='Snow/Ice')
-}
+## get rid of cases with 'unfilled (4) or snow/ice' (1) as LC class in AF
+#if (cont == 'AF') {
+#  glancedat <- subset(glancedat,glancedat[,'LC_Class']!='Unfilled' & glancedat[,'LC_Class']!='Snow/Ice')
+#}
 
 # replace missing confidence values with -99 and convert to factor
-glancedat[is.na(glancedat[,'LC_Confidence']),'LC_Confidence']=-999
-glancedat[,'LC_Confidence']=factor(glancedat[,'LC_Confidence'])
+#glancedat[is.na(glancedat[,'LC_Confidence']),'LC_Confidence']=-999
+#glancedat[,'LC_Confidence']=factor(glancedat[,'LC_Confidence'])
 
 # map features to columns - varies by continent
-if (cont == 'AF') {
-  blue <- 3:17
-  green <- 25:39
-  red <- 65:79
-  nir <- 48:62
-  swir1 <- 80:94
-  swir2 <- 95:109
-  lst <- 112:126
-  topo <- c(2,20,23)
-  categorical <- c(18,19,46,47,127,128)
-  years <- c(110,24,130)
-  orphans <- c(21,22,24,40:43,63)
-  lc.class <- c(44:45)
-  climate <- c(64,111)
-}
+#if (cont == 'AF') {
+#  blue <- 3:17
+#  green <- 25:39
+#  red <- 65:79
+ # nir <- 48:62
+ # swir1 <- 80:94
+ # swir2 <- 95:109
+ # lst <- 112:126
+ # topo <- c(2,20,23)
+#  categorical <- c(18,19,46,47,127,128)
+ # years <- c(110,24,130)
+ # orphans <- c(21,22,24,40:43,63)
+#  lc.class <- c(44:45)
+ # climate <- c(64,111)
+#}
 
-if (cont == 'NA') {
-  blue <- 3:18
-  green <- 26:41
-  red <- 68:83
-  nir <- 50:65
-  swir1 <- 84:99
-  swir2 <- 100:115
-  lst <- 118:133
-  topo <- c(2,21,24)
-  categorical <- c(19,20,46,47)
-  years <- c(138,116,25)
-  datasetID <- 22
-  orphans <- c(23,42,43,49,66,134:137)
-  lc.class <- c(46,42,43)
-  site.id <- c(44,45)
-  ecoreg <- c(47,48)
-  climate <- c(67,117)
-  lat.lon <- c(140,141)
-}
+
+blue <- grep("BLUE_*", colnames(glancedat))
+green <- grep("GREEN_*", colnames(glancedat))
+red <- grep("RED_*", colnames(glancedat))
+nir <- grep("NIR_*", colnames(glancedat))
+swir1 <- grep("SWIR1_*", colnames(glancedat))
+swir2 <- grep("SWIR2_*", colnames(glancedat))
+lst <- grep("TEMP_.", colnames(glancedat))
+topo <- c(grep("ASPECT", colnames(glancedat)), grep("DEM_SLOPE", colnames(glancedat)), 
+          grep("ELEVATION", colnames(glancedat)),
+          grep("MIN_LSZA", colnames(glancedat)), grep("MAX_LSZA", colnames(glancedat)))
+#categorical <- c(19,20,46,47)
+years <- grep("*Year*", colnames(glancedat))
+#datasetID <- 22
+#orphans <- c(23,42,43,49,66,134:137)
+lc.class <- grep("*Class*", colnames(glancedat))
+#site.id <- c(44,45)
+#ecoreg <- grep("*Ecoregion", colnames(glancedat))
+#climate <- c(grep("TEMPERATURE", colnames(glancedat)), grep("RAINFALL", colnames(glancedat)))
+climate <- c(grep("*Temp", colnames(glancedat)), grep("precip", colnames(glancedat)), grep("waterDef", colnames(glancedat)))
+lat.lon <- c(grep("lat", colnames(glancedat)), grep("lon", colnames(glancedat)))
+aux_vars <- c(grep("DEVELOPED", colnames(glancedat)), grep("WATER_OCCURRENCE", colnames(glancedat)),
+              grep("recentMag", colnames(glancedat)))
 
 ###### NOTES: (1) MAPPING OF FEATURES TO COLS NEEDS TO BE UPDATED FOR AFRICA; 
 #             (2) NUMERICAL SITE ID (COL 45) IS NOT UNIQUE TO EACH SITE
 #                 ASSUME SAME SITE, DIFFERENT YEARS
 
 # extract lat/long for each sample - format varies by continent
-if (cont == 'AF') {
-  geo <- glancedat[,'.geo']
-  nc <- nchar(geo)
-  lat.lon <- strsplit(substr(geo,32,(nc-2)),',')
-  lat.lon <- matrix(as.numeric(unlist(lat.lon)),ncol=2,byrow=T)[,c(2,1)]
-}
+#if (cont == 'AF') {
+#  geo <- glancedat[,'.geo']
+#  nc <- nchar(geo)
+#  lat.lon <- strsplit(substr(geo,32,(nc-2)),',')
+#  lat.lon <- matrix(as.numeric(unlist(lat.lon)),ncol=2,byrow=T)[,c(2,1)]
+#}
 
-if (cont == 'NA') {
-  lat.lon <- glancedat[,lat.lon]
-}
+#if (cont == 'NA') {
+#  lat.lon <- glancedat[,lat.lon]
+#}
+
+lat.lon <- glancedat[,lat.lon]
 
 # assign row and col names to lat and lon data
 rownames(lat.lon) <- rownames(glancedat)
@@ -223,7 +232,10 @@ title('Mean Modeled NDVI by LC')
 
 # Generate EDA plots for each class, write as pdf to file.
 class.list=unique(glancedat[,'LC_Class'])
-pdf(file=paste('pdfs/',cont,'GlanceEDA.pdf',sep=''))
+mask <- class.list!="Snow/Ice"
+class.list=class.list[mask]
+
+pdf(file=paste(cont,'GlanceEDA.pdf',sep=''))
 for (cls in class.list) {
   edaPlotsByClass(data=sr.data,
                   lcDat=glancedat[,'LC_Class'],
